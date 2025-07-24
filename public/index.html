@@ -3,129 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Work-flow Messenger</title>
+  <title>Work-flow Messenger Automation</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px #ccc;
-    }
-    h2 {
+      font-family: Arial;
+      background: #f4f4f4;
       text-align: center;
-      color: #1877f2;
+      margin-top: 50px;
     }
-    #chat-box {
-      border: 1px solid #ccc;
-      height: 300px;
-      overflow-y: auto;
-      padding: 10px;
-      margin-bottom: 20px;
-      background: #fafafa;
+    h1 {
+      color: #333;
     }
-    .message {
-      margin: 5px 0;
-      padding: 8px;
-      border-radius: 8px;
-    }
-    .from-me {
-      background: #e1ffc7;
-      text-align: right;
-    }
-    .from-user {
-      background: #fff;
-      text-align: left;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    #login {
-      background: #1877f2;
+    .btn {
+      background-color: #1877f2;
       color: white;
+      padding: 15px 30px;
       border: none;
+      font-size: 18px;
+      border-radius: 5px;
       cursor: pointer;
     }
-    #send {
-      background: #28a745;
-      color: white;
-      border: none;
-      cursor: pointer;
+    .btn:hover {
+      background-color: #145fbd;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Work-flow Messenger</h2>
-
-    <button id="login">🔐 Login with Facebook</button>
-
-    <div style="margin-top: 20px;">
-      <label for="recipient">👤 Recipient ID:</label>
-      <input type="text" id="recipient" placeholder="Enter recipient PSID" />
-    </div>
-
-    <div id="chat-box"></div>
-
-    <input type="text" id="message" placeholder="Type your message..." />
-    <button id="send">📨 Send</button>
-  </div>
-
-  <script>
-    const loginBtn = document.getElementById('login');
-    const sendBtn = document.getElementById('send');
-    const chatBox = document.getElementById('chat-box');
-
-    loginBtn.onclick = () => {
-      window.location.href = '/auth/login';
-    };
-
-    sendBtn.onclick = async () => {
-      const to = document.getElementById('recipient').value.trim();
-      const message = document.getElementById('message').value.trim();
-      if (!to || !message) return alert('Fill both fields!');
-
-      await fetch('/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, message })
-      });
-
-      document.getElementById('message').value = '';
-      loadMessages(to);
-    };
-
-    async function loadMessages(userId) {
-      const res = await fetch(`/chat-history?userId=${userId}`);
-      const data = await res.json();
-
-      chatBox.innerHTML = '';
-      data.messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.classList.add('message');
-        div.classList.add(msg.from?.id === userId ? 'from-user' : 'from-me');
-        div.innerText = msg.message || '[no content]';
-        chatBox.appendChild(div);
-      });
-
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    setInterval(() => {
-      const userId = document.getElementById('recipient').value.trim();
-      if (userId) loadMessages(userId);
-    }, 5000);
-  </script>
+  <h1>Work-flow Messenger Automation</h1>
+  <p>Connect your Facebook Page to get started</p>
+  <a href="/auth/login">
+    <button class="btn">Login with Facebook</button>
+  </a>
 </body>
 </html>
