@@ -1,4 +1,5 @@
 // server.js
+
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -10,15 +11,23 @@ dotenv.config();
 const app = express();
 app.use(cors());
 
-// Serve frontend
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Setup __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, "../public")));
+
+// Serve index.html on root GET
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
+});
 
 const APP_ID = process.env.APP_ID;
 const APP_SECRET = process.env.APP_SECRET;
 const REDIRECT_URI = "https://work-flow-messanger.onrender.com/auth/callback";
 
-// Route: FB Login redirect
+// Facebook Login Route
 app.get("/auth/login", (req, res) => {
   const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${encodeURIComponent(
     REDIRECT_URI
@@ -27,7 +36,7 @@ app.get("/auth/login", (req, res) => {
   res.redirect(authUrl);
 });
 
-// Route: OAuth Callback
+// Facebook OAuth Callback
 app.get("/auth/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Missing code");
@@ -50,7 +59,7 @@ app.get("/auth/callback", async (req, res) => {
     const pagesData = await pagesRes.json();
     if (pagesData.error) return res.status(500).json(pagesData.error);
 
-    // Display in frontend
+    // Format results
     const pagesHTML = pagesData.data
       .map(
         (p) =>
@@ -59,13 +68,13 @@ app.get("/auth/callback", async (req, res) => {
       .join("");
 
     res.send(`<h2>✅ Login Successful!</h2><ul>${pagesHTML}</ul>`);
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     res.status(500).send("OAuth Error");
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server is live at http://localhost:${PORT}`);
 });
