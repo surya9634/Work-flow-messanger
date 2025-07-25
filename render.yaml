@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: work-flow-messenger
+    env: node
+    buildCommand: npm install
+    startCommand: node messenger-backend.js
+    envVars:
+      - key: PORT
+        value: 10000
