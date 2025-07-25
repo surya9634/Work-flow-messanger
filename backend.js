@@ -3,21 +3,21 @@ const axios = require("axios");
 const path = require("path");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
-const qs = require("querystring");
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-const APP_ID = "1256408305896903";
-const APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
-const REDIRECT_URI = "https://messanger-automation.onrender.com/login/callback"; // update for Render
+const APP_ID = "YOUR_APP_ID";
+const APP_SECRET = "YOUR_APP_SECRET";
+const REDIRECT_URI = "https://your-render-url.onrender.com/login/callback"; // <-- CHANGE THIS!
+const VERIFY_TOKEN = "your_verify_token"; // <-- SAME as set in FB webhook
 
-let users = {}; // memory store: userId -> { token, pages: [], history: [] }
+let users = {}; // In-memory store: userId => { token, pages, history }
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public/index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.get("/login", (req, res) => {
@@ -28,14 +28,25 @@ app.get("/login", (req, res) => {
 app.get("/login/callback", async (req, res) => {
   const code = req.query.code;
   try {
-    const tokenRes = await axios.get(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&client_secret=${APP_SECRET}&code=${code}`
-    );
+    const tokenRes = await axios.get(`https://graph.facebook.com/v19.0/oauth/access_token`, {
+      params: {
+        client_id: APP_ID,
+        redirect_uri: REDIRECT_URI,
+        client_secret: APP_SECRET,
+        code
+      }
+    });
+
     const shortToken = tokenRes.data.access_token;
 
-    const longTokenRes = await axios.get(
-      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${shortToken}`
-    );
+    const longTokenRes = await axios.get(`https://graph.facebook.com/v19.0/oauth/access_token`, {
+      params: {
+        grant_type: "fb_exchange_token",
+        client_id: APP_ID,
+        client_secret: APP_SECRET,
+        fb_exchange_token: shortToken
+      }
+    });
 
     const userToken = longTokenRes.data.access_token;
 
@@ -61,7 +72,7 @@ app.get("/login/callback", async (req, res) => {
     res.cookie("userId", userId);
     res.redirect("/");
   } catch (err) {
-    console.error("OAuth error:", err.response?.data || err);
+    console.error("Login callback error:", err.response?.data || err);
     res.send("Login failed.");
   }
 });
@@ -78,41 +89,44 @@ app.get("/history", (req, res) => {
   res.json(users[userId].history);
 });
 
-// Webhook Verification
+// Messenger webhook verification
 app.get("/webhook", (req, res) => {
-  if (req.query["hub.verify_token"] === "your_verify_token") {
+  if (req.query["hub.verify_token"] === VERIFY_TOKEN) {
     res.send(req.query["hub.challenge"]);
   } else {
     res.sendStatus(403);
   }
 });
 
-// Handle incoming messages
+// Messenger webhook event handling
 app.post("/webhook", async (req, res) => {
   const body = req.body;
+
   if (body.object === "page") {
     for (const entry of body.entry) {
       const pageId = entry.id;
       for (const event of entry.messaging) {
         const senderId = event.sender.id;
-        const msg = event.message?.text || "";
+        const messageText = event.message?.text;
 
         const user = Object.values(users).find(u => u.pages.some(p => p.id === pageId));
-        if (user) {
-          user.history.push({ pageId, from: senderId, text: msg });
+        if (!user) continue;
 
-          const page = user.pages.find(p => p.id === pageId);
-          if (page) {
-            await axios.post(
-              `https://graph.facebook.com/v19.0/me/messages?access_token=${page.token}`,
-              {
-                recipient: { id: senderId },
-                message: { text: `Echo: ${msg}` },
-              }
-            );
+        const page = user.pages.find(p => p.id === pageId);
+        if (!page) continue;
 
-            user.history.push({ pageId, from: "page", text: `Echo: ${msg}` });
-          }
+        if (messageText) {
+          user.history.push({ pageId, from: senderId, text: messageText });
+
+          await axios.post(
+            `https://graph.facebook.com/v19.0/me/messages?access_token=${page.token}`,
+            {
+              recipient: { id: senderId },
+              message: { text: `Echo: ${messageText}` }
+            }
+          );
+
+          user.history.push({ pageId, from: "page", text: `Echo: ${messageText}` });
         }
       }
     }
@@ -124,5 +138,5 @@ app.post("/webhook", async (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`🔥 SaaS backend running on http://localhost:${PORT}`);
+  console.log(`✅ Messenger SaaS server running at http://localhost:${PORT}`);
 });
