@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: work-flow-messenger
+    name: messanger-automation
     env: node
     buildCommand: npm install
     startCommand: node backend.js
