@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Messenger Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 0;
+      padding: 0;
+    }
+    .chat-container {
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    .message {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .message img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .message-text {
+      background: #f1f0f0;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+    }
+    #messages { max-height: 400px; overflow-y: auto; }
+    #sendForm {
+      display: flex;
+      margin-top: 1rem;
+    }
+    #msgInput {
+      flex: 1;
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #sendBtn {
+      padding: 0.6rem 1.2rem;
+      margin-left: 0.5rem;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <h2>Messenger Chat</h2>
+    <div id="messages"></div>
+
+    <form id="sendForm">
+      <input type="text" id="msgInput" placeholder="Type a message" required />
+      <button type="submit" id="sendBtn">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const convoId = urlParams.get("id");
+
+    async function loadMessages() {
+      const res = await fetch(`/api/messages?id=${convoId}`);
+      const data = await res.json();
+      const messagesDiv = document.getElementById("messages");
+      messagesDiv.innerHTML = "";
+
+      data.messages.forEach(msg => {
+        const div = document.createElement("div");
+        div.className = "message";
+        div.innerHTML = \`
+          <img src="\${msg.pfp}" />
+          <div class="message-text">
+            <strong>\${msg.sender}:</strong> \${msg.text}
+          </div>
+        \`;
+        messagesDiv.appendChild(div);
+      });
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    document.getElementById("sendForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = document.getElementById("msgInput").value;
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ id: convoId, message: text })
+      });
+
+      document.getElementById("msgInput").value = "";
+      await loadMessages();
+    });
+
+    loadMessages();
+    setInterval(loadMessages, 5000); // Poll every 5 seconds
+  </script>
+</body>
+</html>
