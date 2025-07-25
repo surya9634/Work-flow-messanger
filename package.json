@@ -1,15 +1,15 @@
 {
-  "name": "work-flow-messenger",
+  "name": "messenger-saas",
   "version": "1.0.0",
-  "main": "backend.js",
+  "description": "Messenger Automation SaaS Backend",
+  "main": "server.js",
   "scripts": {
-    "start": "node backend.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.6.8",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
-    "express": "^4.18.2",
-    "querystring": "^0.2.1"
+    "express": "^4.18.2"
   }
 }
