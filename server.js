@@ -1,86 +1,102 @@
-// server.js
-import express from 'express';
-import session from 'express-session';
-import passport from 'passport';
-import FacebookStrategy from 'passport-facebook';
-import fetch from 'node-fetch';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from "express";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as FacebookStrategy } from "passport-facebook";
+import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Session setup
-app.use(session({
-  secret: 'keyboardcat',
-  resave: false,
-  saveUninitialized: true
-}));
+// ======= SESSION SETUP =======
+app.use(
+  session({
+    secret: "your-session-secret",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
+// ======= PASSPORT SETUP =======
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport Facebook Strategy
-passport.use(new FacebookStrategy({
-  clientID: process.env.FB_APP_ID,
-  clientSecret: process.env.FB_APP_SECRET,
-  callbackURL: '/login/callback'
-}, (accessToken, refreshToken, profile, cb) => {
-  return cb(null, { profile, accessToken });
-}));
-
 passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-// Static frontend
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Facebook login routes
-app.get('/login', passport.authenticate('facebook', {
-  scope: ['pages_show_list', 'pages_messaging', 'pages_manage_metadata', 'pages_read_engagement']
-}));
-
-app.get('/login/callback',
-  passport.authenticate('facebook', { failureRedirect: '/' }),
-  (req, res) => res.redirect('/')
+// ✅ FACEBOOK OAUTH STRATEGY ✅
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: process.env.FB_APP_ID,
+      clientSecret: process.env.FB_APP_SECRET,
+      callbackURL: "https://work-flow-messanger.onrender.com/login/callback", // must match FB dashboard
+      profileFields: ["id", "displayName"],
+    },
+    function (accessToken, refreshToken, profile, cb) {
+      profile.accessToken = accessToken;
+      return cb(null, profile);
+    }
+  )
 );
 
-// Load user pages
-app.get('/pages', async (req, res) => {
-  if (!req.user) return res.status(401).send('Unauthorized');
-  const url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${req.user.accessToken}`;
-  const response = await fetch(url);
-  const data = await response.json();
-  res.json(data.data || []);
+// ======= ROUTES =======
+
+// ✅ Serve frontend HTML
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Load chat history (example dummy response)
-app.get('/history', async (req, res) => {
+// ✅ Login
+app.get("/login", passport.authenticate("facebook", {
+  scope: [
+    "pages_show_list",
+    "pages_messaging",
+    "pages_read_engagement",
+    "pages_manage_metadata"
+  ]
+}));
+
+// ✅ Callback from Facebook
+app.get(
+  "/login/callback",
+  passport.authenticate("facebook", { failureRedirect: "/" }),
+  (req, res) => {
+    req.session.user = req.user;
+    res.redirect("/dashboard"); // or back to frontend
+  }
+);
+
+// ✅ Pages (Mock / Replace with Graph API logic)
+app.get("/pages", (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+
+  // Fetch pages using Facebook Graph API and user accessToken
   res.json([
-    { id: '1', user: 'Suraj Sharma', message: 'Welcome to Messenger SaaS!' },
-    { id: '2', user: 'Bot', message: 'This is an AI-powered automation platform.' }
+    { id: "101", name: "Workflow Page A" },
+    { id: "102", name: "Workflow Page B" },
   ]);
 });
 
-// Send message (example)
-app.get('/send-message', async (req, res) => {
-  if (!req.user) return res.status(401).send('Unauthorized');
-  const { pageId, message } = req.query;
-  const url = `https://graph.facebook.com/v19.0/${pageId}/messages?access_token=${req.user.accessToken}`;
-  const body = JSON.stringify({ message: { text: message } });
+// ✅ Chat History (Mock / Replace with your data logic)
+app.get("/history", (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body
-  });
-
-  const data = await response.json();
-  res.json(data);
+  res.json([
+    { id: "msg1", text: "Hello from user" },
+    { id: "msg2", text: "Reply from bot" },
+  ]);
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// ✅ Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
