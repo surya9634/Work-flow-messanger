@@ -3,7 +3,12 @@ services:
     name: messanger-automation
     env: node
     buildCommand: npm install
-    startCommand: node backend.js
+    startCommand: node server.js
+    plan: free
     envVars:
-      - key: PORT
-        value: 10000
+      - key: APP_ID
+        value: 1256408305896903   # ⬅️ Replace this
+      - key: APP_SECRET
+        value: fc7fbca3fbecd5bc6b06331bc4da17c9 # ⬅️ Replace this
+      - key: VERIFY_TOKEN
+        value: hello     # ⬅️ Replace this
