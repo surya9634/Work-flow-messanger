@@ -6,15 +6,14 @@ const fetch = require("node-fetch");
 const path = require("path");
 
 const app = express();
-
 const PORT = process.env.PORT || 10000;
 
-// Replace these with actual values or use process.env
+// Facebook App Credentials
 const FACEBOOK_APP_ID = "1256408305896903";
 const FACEBOOK_APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
-const CALLBACK_URL = "https://work-flow-messanger.onrender.com//login/callback";
+const CALLBACK_URL = "https://work-flow-messanger.onrender.com/login/callback"; // ✅ Fixed URL
 
-// Session setup
+// Session middleware
 app.use(session({
   secret: "workflow_secret_key",
   resave: false,
@@ -24,31 +23,25 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport Config
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
+// Serialize/Deserialize
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-passport.deserializeUser((obj, done) => {
-  done(null, obj);
-});
-
-// Facebook OAuth Strategy
+// Passport Facebook Strategy
 passport.use(new FacebookStrategy({
   clientID: FACEBOOK_APP_ID,
   clientSecret: FACEBOOK_APP_SECRET,
   callbackURL: CALLBACK_URL,
   profileFields: ['id', 'displayName', 'emails']
 }, (accessToken, refreshToken, profile, done) => {
-  // Here you can store the accessToken in session or DB if needed
   profile.accessToken = accessToken;
   return done(null, profile);
 }));
 
-// Public static folder for frontend
+// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Facebook login route
+// Auth start
 app.get("/login", passport.authenticate("facebook", {
   scope: [
     "pages_show_list",
@@ -58,19 +51,16 @@ app.get("/login", passport.authenticate("facebook", {
   ]
 }));
 
-// ✅ Facebook callback route
+// Auth callback
 app.get("/login/callback", passport.authenticate("facebook", {
   failureRedirect: "/login/fail"
 }), (req, res) => {
-  // Successful login
-  res.redirect("/dashboard"); // Or wherever you want to take them
+  res.redirect("/dashboard");
 });
 
-// Dashboard route (protected)
+// Protected dashboard
 app.get("/dashboard", (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.redirect("/login");
-  }
+  if (!req.isAuthenticated()) return res.redirect("/login");
 
   res.send(`<h1>Hello, ${req.user.displayName}</h1>
   <p>Access Token: ${req.user.accessToken}</p>
@@ -78,7 +68,7 @@ app.get("/dashboard", (req, res) => {
 });
 
 // Logout
-app.get("/logout", (req, res) => {
+app.get("/logout", (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
     res.redirect("/");
@@ -90,11 +80,12 @@ app.get("/login/fail", (req, res) => {
   res.send("Facebook login failed. Try again.");
 });
 
-// Fallback
+// Homepage
 app.get("/", (req, res) => {
   res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>");
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
