@@ -1,79 +1,100 @@
-import express from "express";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as FacebookStrategy } from "passport-facebook";
-import fetch from "node-fetch";
-import path from "path";
-import { fileURLToPath } from "url";
+const express = require("express");
+const session = require("express-session");
+const passport = require("passport");
+const FacebookStrategy = require("passport-facebook").Strategy;
+const fetch = require("node-fetch");
+const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, "public")));
+const PORT = process.env.PORT || 10000;
+
+// Replace these with actual values or use process.env
+const FACEBOOK_APP_ID = "YOUR_APP_ID";
+const FACEBOOK_APP_SECRET = "YOUR_APP_SECRET";
+const CALLBACK_URL = "https://messanger-automation.onrender.com/login/callback";
 
 // Session setup
 app.use(session({
-  secret: "keyboard cat",
+  secret: "workflow_secret_key",
   resave: false,
-  saveUninitialized: true
+  saveUninitialized: false
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Facebook credentials (replace with your env values or paste directly)
-const FACEBOOK_APP_ID = "1256408305896903";
-const FACEBOOK_APP_SECRET = "your-app-secret"; // replace with real secret
+// Passport Config
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
 
+passport.deserializeUser((obj, done) => {
+  done(null, obj);
+});
+
+// Facebook OAuth Strategy
 passport.use(new FacebookStrategy({
   clientID: FACEBOOK_APP_ID,
   clientSecret: FACEBOOK_APP_SECRET,
-  callbackURL: "https://messanger-automation.onrender.com/login/callback",
+  callbackURL: CALLBACK_URL,
   profileFields: ['id', 'displayName', 'emails']
-}, (accessToken, refreshToken, profile, cb) => {
+}, (accessToken, refreshToken, profile, done) => {
+  // Here you can store the accessToken in session or DB if needed
   profile.accessToken = accessToken;
-  return cb(null, profile);
+  return done(null, profile);
 }));
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
+// Public static folder for frontend
+app.use(express.static(path.join(__dirname, "public")));
 
-// Facebook login routes
+// Facebook login route
 app.get("/login", passport.authenticate("facebook", {
-  scope: ['pages_show_list', 'pages_messaging', 'pages_read_engagement', 'pages_manage_metadata']
+  scope: [
+    "pages_show_list",
+    "pages_messaging",
+    "pages_manage_metadata",
+    "pages_read_engagement"
+  ]
 }));
 
+// ✅ Facebook callback route
 app.get("/login/callback", passport.authenticate("facebook", {
-  failureRedirect: "/"
+  failureRedirect: "/login/fail"
 }), (req, res) => {
-  // 🟢 FIXED: redirect back to single page
-  res.redirect("/");
+  // Successful login
+  res.redirect("/dashboard"); // Or wherever you want to take them
 });
 
-// Sample data API for frontend
-app.get("/pages", (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-  res.json([
-    { id: "123", name: "Suraj's Test Page" },
-    { id: "456", name: "Workflow Bot Page" }
-  ]);
+// Dashboard route (protected)
+app.get("/dashboard", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/login");
+  }
+
+  res.send(`<h1>Hello, ${req.user.displayName}</h1>
+  <p>Access Token: ${req.user.accessToken}</p>
+  <a href="/logout">Logout</a>`);
 });
 
-app.get("/history", (req, res) => {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-  res.json([
-    { id: "1", message: "Hi from Suraj" },
-    { id: "2", message: "Hello from Bot 🤖" }
-  ]);
+// Logout
+app.get("/logout", (req, res) => {
+  req.logout(err => {
+    if (err) return next(err);
+    res.redirect("/");
+  });
 });
 
-// Home fallback (if someone types `/` directly)
+// Login failed
+app.get("/login/fail", (req, res) => {
+  res.send("Facebook login failed. Try again.");
+});
+
+// Fallback
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public/index.html"));
+  res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>");
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
