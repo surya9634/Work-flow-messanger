@@ -1,7 +1,7 @@
 {
   "name": "messenger-automation",
   "version": "1.0.0",
-  "description": "Facebook Messenger automation with real-time chat using Socket.IO",
+  "description": "Messenger Automation App with real-time support",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
