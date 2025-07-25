@@ -1,12 +1,13 @@
 services:
   - type: web
-    name: messanger-automation
+    name: messenger-automation
     env: node
-    buildCommand: npm install
-    startCommand: node server.js
     plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
     envVars:
-      - key: APP_ID
+      - key: FB_APP_ID
         value: 1256408305896903
-      - key: APP_SECRET
+      - key: FB_APP_SECRET
         value: fc7fbca3fbecd5bc6b06331bc4da17c9
+    autoDeploy: true
