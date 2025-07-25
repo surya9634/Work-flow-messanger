@@ -1,30 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Work-flow Messenger Automation</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background-color: #f0f2f5;
-    }
-    .login-btn {
-      padding: 12px 24px;
-      background-color: #1877f2;
-      color: white;
-      border: none;
-      font-size: 18px;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-  </style>
+  <title>Work-flow Messenger Chat</title>
 </head>
 <body>
-  <a href="/auth/login"><button class="login-btn">Login with Facebook</button></a>
+  <h2>Messenger Chat History</h2>
+  <button onclick="fetchHistory()">🔄 Load Chat</button>
+  <ul id="chatList"></ul>
+
+  <script>
+    async function fetchHistory() {
+      const res = await fetch("/history");
+      const chats = await res.json();
+      const list = document.getElementById("chatList");
+      list.innerHTML = "";
+      chats.forEach(msg => {
+        const li = document.createElement("li");
+        li.textContent = `${msg.from}: ${msg.text}`;
+        list.appendChild(li);
+      });
+    }
+  </script>
 </body>
 </html>
