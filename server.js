@@ -1,3 +1,5 @@
+// server.cjs (CommonJS, Facebook Messenger Chat Viewer)
+
 const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
@@ -8,12 +10,10 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Facebook App Credentials
 const FACEBOOK_APP_ID = "1256408305896903";
 const FACEBOOK_APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
-const CALLBACK_URL = "https://work-flow-messanger.onrender.com/login/callback"; // ✅ Fixed URL
+const CALLBACK_URL = "https://work-flow-messanger.onrender.com/login/callback";
 
-// Session middleware
 app.use(session({
   secret: "workflow_secret_key",
   resave: false,
@@ -23,11 +23,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Serialize/Deserialize
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// Passport Facebook Strategy
 passport.use(new FacebookStrategy({
   clientID: FACEBOOK_APP_ID,
   clientSecret: FACEBOOK_APP_SECRET,
@@ -38,33 +36,66 @@ passport.use(new FacebookStrategy({
   return done(null, profile);
 }));
 
-// Static folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Auth start
+// Facebook login
 app.get("/login", passport.authenticate("facebook", {
-  scope: [
-    "pages_show_list",
-    "pages_messaging",
-    "pages_manage_metadata",
-    "pages_read_engagement"
-  ]
+  scope: ["pages_show_list", "pages_messaging", "pages_manage_metadata", "pages_read_engagement"]
 }));
 
-// Auth callback
-app.get("/login/callback", passport.authenticate("facebook", {
-  failureRedirect: "/login/fail"
-}), (req, res) => {
+// Facebook callback
+app.get("/login/callback", passport.authenticate("facebook", { failureRedirect: "/login/fail" }), (req, res) => {
   res.redirect("/dashboard");
 });
 
-// Protected dashboard
-app.get("/dashboard", (req, res) => {
+// Dashboard: Display name and token
+app.get("/dashboard", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
-
   res.send(`<h1>Hello, ${req.user.displayName}</h1>
-  <p>Access Token: ${req.user.accessToken}</p>
-  <a href="/logout">Logout</a>`);
+    <p>Access Token: ${req.user.accessToken}</p>
+    <a href="/conversations">View Conversations</a> | <a href="/logout">Logout</a>`);
+});
+
+// Get Page Access Token
+async function getPageAccessToken(userToken) {
+  const resp = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userToken}`);
+  const data = await resp.json();
+  if (data.data && data.data.length > 0) return data.data[0];
+  return null;
+}
+
+// Show conversations
+app.get("/conversations", async (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect("/login");
+  const page = await getPageAccessToken(req.user.accessToken);
+  if (!page) return res.send("No pages found or permission denied.");
+
+  const resp = await fetch(`https://graph.facebook.com/v19.0/${page.id}/conversations?access_token=${page.access_token}`);
+  const data = await resp.json();
+
+  let html = `<h2>Messenger Conversations</h2><ul>`;
+  for (let convo of data.data) {
+    html += `<li><a href="/messages/${convo.id}">${convo.id}</a></li>`;
+  }
+  html += `</ul><a href="/dashboard">Back to Dashboard</a>`;
+  res.send(html);
+});
+
+// Show messages for a conversation
+app.get("/messages/:id", async (req, res) => {
+  if (!req.isAuthenticated()) return res.redirect("/login");
+  const page = await getPageAccessToken(req.user.accessToken);
+  if (!page) return res.send("Page access not found");
+
+  const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?access_token=${page.access_token}`);
+  const data = await resp.json();
+
+  let html = `<h2>Messages</h2><ul>`;
+  for (let msg of data.data) {
+    html += `<li><strong>${msg.from.name || 'User'}:</strong> ${msg.message || '[No text]'}</li>`;
+  }
+  html += `</ul><a href="/conversations">Back to Conversations</a>`;
+  res.send(html);
 });
 
 // Logout
@@ -76,16 +107,11 @@ app.get("/logout", (req, res, next) => {
 });
 
 // Login failed
-app.get("/login/fail", (req, res) => {
-  res.send("Facebook login failed. Try again.");
-});
+app.get("/login/fail", (req, res) => res.send("Facebook login failed. Try again."));
 
 // Homepage
 app.get("/", (req, res) => {
   res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>");
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
