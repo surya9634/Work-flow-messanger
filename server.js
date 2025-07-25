@@ -1,65 +1,86 @@
-const express = require("express");
-const session = require("express-session");
-const passport = require("passport");
-const FacebookStrategy = require("passport-facebook").Strategy;
-const path = require("path");
-require("dotenv").config();
+// server.js
+import express from 'express';
+import session from 'express-session';
+import passport from 'passport';
+import FacebookStrategy from 'passport-facebook';
+import fetch from 'node-fetch';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Session
-app.use(session({ secret: "keyboard cat", resave: false, saveUninitialized: true }));
+// Session setup
+app.use(session({
+  secret: 'keyboardcat',
+  resave: false,
+  saveUninitialized: true
+}));
+
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport serialize
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
-
-// Passport strategy
+// Passport Facebook Strategy
 passport.use(new FacebookStrategy({
-  clientID: process.env.APP_ID,
-  clientSecret: process.env.APP_SECRET,
-  callbackURL: "https://messanger-automation.onrender.com/auth/facebook/callback",
-  profileFields: ['id', 'displayName']
-}, function (accessToken, refreshToken, profile, cb) {
-  profile.accessToken = accessToken;
-  return cb(null, profile);
+  clientID: process.env.FB_APP_ID,
+  clientSecret: process.env.FB_APP_SECRET,
+  callbackURL: '/login/callback'
+}, (accessToken, refreshToken, profile, cb) => {
+  return cb(null, { profile, accessToken });
 }));
 
-// Routes
-app.get('/auth/facebook',
-  passport.authenticate('facebook', {
-    scope: ['pages_messaging', 'pages_show_list', 'pages_read_engagement', 'pages_manage_metadata']
-  })
-);
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((user, done) => done(null, user));
 
-app.get('/auth/facebook/callback',
+// Static frontend
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Facebook login routes
+app.get('/login', passport.authenticate('facebook', {
+  scope: ['pages_show_list', 'pages_messaging', 'pages_manage_metadata', 'pages_read_engagement']
+}));
+
+app.get('/login/callback',
   passport.authenticate('facebook', { failureRedirect: '/' }),
-  function (req, res) {
-    res.redirect('/success');
-  }
+  (req, res) => res.redirect('/')
 );
 
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+// Load user pages
+app.get('/pages', async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthorized');
+  const url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${req.user.accessToken}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data.data || []);
 });
 
-app.get("/success", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.send(`
-      <h2>✅ Logged in as ${req.user.displayName}</h2>
-      <p>Access Token: ${req.user.accessToken}</p>
-    `);
-  } else {
-    res.redirect("/");
-  }
+// Load chat history (example dummy response)
+app.get('/history', async (req, res) => {
+  res.json([
+    { id: '1', user: 'Suraj Sharma', message: 'Welcome to Messenger SaaS!' },
+    { id: '2', user: 'Bot', message: 'This is an AI-powered automation platform.' }
+  ]);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Send message (example)
+app.get('/send-message', async (req, res) => {
+  if (!req.user) return res.status(401).send('Unauthorized');
+  const { pageId, message } = req.query;
+  const url = `https://graph.facebook.com/v19.0/${pageId}/messages?access_token=${req.user.accessToken}`;
+  const body = JSON.stringify({ message: { text: message } });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body
+  });
+
+  const data = await response.json();
+  res.json(data);
 });
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
