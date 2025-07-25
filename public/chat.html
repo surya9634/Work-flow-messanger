@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Messenger Chat</title>
   <link href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body class="bg-gray-100">
   <div class="max-w-3xl mx-auto mt-10 bg-white rounded shadow p-6">
@@ -24,13 +25,17 @@
   </div>
 
   <script>
+    const socket = io();
     const urlParams = new URLSearchParams(window.location.search);
     const convoId = urlParams.get("id");
 
+    const messagesDiv = document.getElementById("messages");
+    const msgInput = document.getElementById("msgInput");
+
+    // Load existing messages from backend
     async function loadMessages() {
       const res = await fetch(`/api/messages?id=${convoId}`);
       const data = await res.json();
-      const messagesDiv = document.getElementById("messages");
       messagesDiv.innerHTML = "";
 
       if (!data.messages || data.messages.length === 0) {
@@ -40,12 +45,13 @@
 
       data.messages.forEach(msg => {
         const div = document.createElement("div");
-        div.className = "flex items-start gap-3";
+        div.className = "flex gap-3 items-start";
+
         div.innerHTML = `
           <img src="${msg.pfp}" class="w-10 h-10 rounded-full shadow" />
           <div>
-            <div class="font-semibold">${msg.sender}</div>
-            <div class="bg-gray-200 rounded p-2 mt-1 text-sm">${msg.text}</div>
+            <div class="text-sm font-semibold text-blue-700">${msg.sender}</div>
+            <div class="bg-blue-100 text-gray-800 rounded p-2 mt-1 text-sm max-w-sm">${msg.text}</div>
           </div>
         `;
         messagesDiv.appendChild(div);
@@ -54,9 +60,10 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    // Handle sending message
     document.getElementById("sendForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const text = document.getElementById("msgInput").value.trim();
+      const text = msgInput.value.trim();
       if (!text) return;
 
       await fetch("/api/send", {
@@ -65,12 +72,19 @@
         body: JSON.stringify({ id: convoId, message: text })
       });
 
-      document.getElementById("msgInput").value = "";
-      await loadMessages();
+      msgInput.value = "";
     });
 
+    // Listen for live messages via Socket.IO
+    socket.emit("join", convoId);
+    socket.on("newMessage", async (msg) => {
+      if (msg.id === convoId) {
+        await loadMessages();
+      }
+    });
+
+    // Initial load
     loadMessages();
-    setInterval(loadMessages, 5000); // Poll every 5 sec
   </script>
 </body>
 </html>
