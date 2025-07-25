@@ -11,7 +11,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 const APP_ID = "1256408305896903";
-const APP_SECRET = "hello";
+const APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
 const REDIRECT_URI = "https://messanger-automation.onrender.com/login/callback"; // update for Render
 
 let users = {}; // memory store: userId -> { token, pages: [], history: [] }
