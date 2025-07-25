@@ -1,4 +1,4 @@
-// server.cjs (Facebook Messenger Automation with Error Handling)
+// server.cjs (Facebook Messenger Automation - With Sender Info & Message Text Fix)
 
 const express = require("express");
 const session = require("express-session");
@@ -48,7 +48,6 @@ app.get("/login/callback", passport.authenticate("facebook", { failureRedirect: 
   res.redirect("/dashboard");
 });
 
-// Dashboard: Display name and token
 app.get("/dashboard", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
   res.send(`<h1>Hello, ${req.user.displayName}</h1>
@@ -56,7 +55,6 @@ app.get("/dashboard", async (req, res) => {
     <a href="/conversations">View Conversations</a> | <a href="/logout">Logout</a>`);
 });
 
-// Get Page Access Token
 async function getPageAccessToken(userToken) {
   try {
     const resp = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userToken}`);
@@ -69,7 +67,6 @@ async function getPageAccessToken(userToken) {
   }
 }
 
-// Show conversations
 app.get("/conversations", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
 
@@ -98,7 +95,6 @@ app.get("/conversations", async (req, res) => {
   }
 });
 
-// Show messages for a conversation
 app.get("/messages/:id", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
 
@@ -106,7 +102,7 @@ app.get("/messages/:id", async (req, res) => {
     const page = await getPageAccessToken(req.user.accessToken);
     if (!page) return res.send("Page access not found");
 
-    const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?access_token=${page.access_token}`);
+    const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?fields=message,from,created_time&access_token=${page.access_token}`);
     const data = await resp.json();
 
     if (data.error) {
@@ -114,9 +110,11 @@ app.get("/messages/:id", async (req, res) => {
       return res.send(`Error fetching messages: ${data.error.message}`);
     }
 
-    let html = `<h2>Messages</h2><ul>`;
+    let html = `<h2>Messages for Conversation ID: ${req.params.id}</h2><ul>`;
     for (let msg of data.data || []) {
-      html += `<li><strong>${msg.from?.name || 'User'}:</strong> ${msg.message || '[No text]'}</li>`;
+      const sender = msg.from?.name || msg.from?.id || "Unknown";
+      const content = msg.message || "[No text]";
+      html += `<li><strong>${sender}:</strong> ${content}</li>`;
     }
     html += `</ul><a href="/conversations">Back to Conversations</a>`;
     res.send(html);
@@ -127,7 +125,6 @@ app.get("/messages/:id", async (req, res) => {
   }
 });
 
-// Logout
 app.get("/logout", (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
@@ -135,10 +132,8 @@ app.get("/logout", (req, res, next) => {
   });
 });
 
-// Login failed
 app.get("/login/fail", (req, res) => res.send("Facebook login failed. Try again."));
 
-// Homepage
 app.get("/", (req, res) => {
   res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>");
 });
