@@ -1,4 +1,4 @@
-// server.cjs (CommonJS, Facebook Messenger Chat Viewer)
+// server.cjs (Facebook Messenger Automation with Error Handling)
 
 const express = require("express");
 const session = require("express-session");
@@ -58,44 +58,73 @@ app.get("/dashboard", async (req, res) => {
 
 // Get Page Access Token
 async function getPageAccessToken(userToken) {
-  const resp = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userToken}`);
-  const data = await resp.json();
-  if (data.data && data.data.length > 0) return data.data[0];
-  return null;
+  try {
+    const resp = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userToken}`);
+    const data = await resp.json();
+    if (data.data && data.data.length > 0) return data.data[0];
+    return null;
+  } catch (err) {
+    console.error("Error getting page access token:", err);
+    return null;
+  }
 }
 
 // Show conversations
 app.get("/conversations", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
-  const page = await getPageAccessToken(req.user.accessToken);
-  if (!page) return res.send("No pages found or permission denied.");
 
-  const resp = await fetch(`https://graph.facebook.com/v19.0/${page.id}/conversations?access_token=${page.access_token}`);
-  const data = await resp.json();
+  try {
+    const page = await getPageAccessToken(req.user.accessToken);
+    if (!page) return res.send("No pages found or permission denied.");
 
-  let html = `<h2>Messenger Conversations</h2><ul>`;
-  for (let convo of data.data) {
-    html += `<li><a href="/messages/${convo.id}">${convo.id}</a></li>`;
+    const resp = await fetch(`https://graph.facebook.com/v19.0/${page.id}/conversations?access_token=${page.access_token}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      console.error("Facebook API Error:", data.error);
+      return res.send(`Error fetching conversations: ${data.error.message}`);
+    }
+
+    let html = `<h2>Messenger Conversations</h2><ul>`;
+    for (let convo of data.data || []) {
+      html += `<li><a href="/messages/${convo.id}">${convo.id}</a></li>`;
+    }
+    html += `</ul><a href="/dashboard">Back to Dashboard</a>`;
+    res.send(html);
+
+  } catch (err) {
+    console.error("Error in /conversations:", err);
+    res.status(500).send("Internal server error.");
   }
-  html += `</ul><a href="/dashboard">Back to Dashboard</a>`;
-  res.send(html);
 });
 
 // Show messages for a conversation
 app.get("/messages/:id", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
-  const page = await getPageAccessToken(req.user.accessToken);
-  if (!page) return res.send("Page access not found");
 
-  const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?access_token=${page.access_token}`);
-  const data = await resp.json();
+  try {
+    const page = await getPageAccessToken(req.user.accessToken);
+    if (!page) return res.send("Page access not found");
 
-  let html = `<h2>Messages</h2><ul>`;
-  for (let msg of data.data) {
-    html += `<li><strong>${msg.from.name || 'User'}:</strong> ${msg.message || '[No text]'}</li>`;
+    const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?access_token=${page.access_token}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      console.error("Facebook API Error:", data.error);
+      return res.send(`Error fetching messages: ${data.error.message}`);
+    }
+
+    let html = `<h2>Messages</h2><ul>`;
+    for (let msg of data.data || []) {
+      html += `<li><strong>${msg.from?.name || 'User'}:</strong> ${msg.message || '[No text]'}</li>`;
+    }
+    html += `</ul><a href="/conversations">Back to Conversations</a>`;
+    res.send(html);
+
+  } catch (err) {
+    console.error("Server crash on /messages/:id →", err);
+    res.status(500).send("Internal server error. Please try again later.");
   }
-  html += `</ul><a href="/conversations">Back to Conversations</a>`;
-  res.send(html);
 });
 
 // Logout
