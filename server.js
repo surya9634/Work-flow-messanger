@@ -7,8 +7,8 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const VERIFY_TOKEN = "your_verify_token"; // Set same as in FB Developer Console
-const PAGE_ACCESS_TOKEN = "your_page_access_token"; // Get from FB Page
+const VERIFY_TOKEN = "hello"; // Set same as in FB Developer Console
+const PAGE_ACCESS_TOKEN = "1256408305896903"; // Get from FB Page
 
 let messageHistory = [];
 
