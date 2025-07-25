@@ -1,22 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Work-flow Messenger Chat</title>
+  <title>Work-flow Messenger</title>
 </head>
 <body>
-  <h2>Messenger Chat History</h2>
-  <button onclick="fetchHistory()">🔄 Load Chat</button>
-  <ul id="chatList"></ul>
+  <h1>📨 Work-flow Messenger Automation</h1>
+  <button onclick="window.location.href='/login'">Login with Facebook</button>
+  <br/><br/>
+  <button onclick="loadPages()">Load Pages</button>
+  <ul id="pages"></ul>
+  <br/>
+  <button onclick="loadHistory()">Load Message History</button>
+  <ul id="history"></ul>
 
   <script>
-    async function fetchHistory() {
-      const res = await fetch("/history");
-      const chats = await res.json();
-      const list = document.getElementById("chatList");
-      list.innerHTML = "";
-      chats.forEach(msg => {
-        const li = document.createElement("li");
-        li.textContent = `${msg.from}: ${msg.text}`;
+    async function loadPages() {
+      const res = await fetch('/pages');
+      const pages = await res.json();
+      const list = document.getElementById('pages');
+      list.innerHTML = '';
+      pages.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = `${p.name} (ID: ${p.id})`;
+        list.appendChild(li);
+      });
+    }
+
+    async function loadHistory() {
+      const res = await fetch('/history');
+      const history = await res.json();
+      const list = document.getElementById('history');
+      list.innerHTML = '';
+      history.forEach(msg => {
+        const li = document.createElement('li');
+        li.textContent = `${msg.from} (${msg.pageId}): ${msg.text}`;
         list.appendChild(li);
       });
     }
