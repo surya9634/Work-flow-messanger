@@ -9,10 +9,10 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(cookieParser());
 app.use(bodyParser.json());
 
-const APP_ID = "YOUR_APP_ID"; // ⬅️ Replace
-const APP_SECRET = "YOUR_APP_SECRET"; // ⬅️ Replace
+const APP_ID = "1256408305896903"; // ⬅️ Replace
+const APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9"; // ⬅️ Replace
 const REDIRECT_URI = "https://messanger-automation.onrender.com/login/callback"; // ⬅️ Replace if different
-const VERIFY_TOKEN = "your_verify_token"; // ⬅️ Replace and match with FB webhook setup
+const VERIFY_TOKEN = "hello"; // ⬅️ Replace and match with FB webhook setup
 
 const users = {}; // userId -> { token, pages, history }
 
