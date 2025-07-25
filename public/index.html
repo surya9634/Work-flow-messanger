@@ -1,40 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Work-flow Messenger</title>
+  <title>Work-flow Messenger SaaS</title>
 </head>
 <body>
-  <h1>📨 Work-flow Messenger Automation</h1>
-  <button onclick="window.location.href='/login'">Login with Facebook</button>
-  <br/><br/>
-  <button onclick="loadPages()">Load Pages</button>
+  <h1>💬 Work-flow Messenger Automation</h1>
+
+  <button onclick="window.location.href='/login'">🔐 Login with Facebook</button>
+  <br><br>
+
+  <button onclick="loadPages()">📃 Load Pages</button>
   <ul id="pages"></ul>
-  <br/>
-  <button onclick="loadHistory()">Load Message History</button>
+  <br>
+
+  <button onclick="loadHistory()">📜 Load Chat History</button>
   <ul id="history"></ul>
 
   <script>
     async function loadPages() {
-      const res = await fetch('/pages');
-      const pages = await res.json();
-      const list = document.getElementById('pages');
-      list.innerHTML = '';
-      pages.forEach(p => {
-        const li = document.createElement('li');
+      const res = await fetch("/pages");
+      const data = await res.json();
+      const ul = document.getElementById("pages");
+      ul.innerHTML = "";
+      data.forEach(p => {
+        const li = document.createElement("li");
         li.textContent = `${p.name} (ID: ${p.id})`;
-        list.appendChild(li);
+        ul.appendChild(li);
       });
     }
 
     async function loadHistory() {
-      const res = await fetch('/history');
-      const history = await res.json();
-      const list = document.getElementById('history');
-      list.innerHTML = '';
-      history.forEach(msg => {
-        const li = document.createElement('li');
-        li.textContent = `${msg.from} (${msg.pageId}): ${msg.text}`;
-        list.appendChild(li);
+      const res = await fetch("/history");
+      const data = await res.json();
+      const ul = document.getElementById("history");
+      ul.innerHTML = "";
+      data.forEach(m => {
+        const li = document.createElement("li");
+        li.textContent = `${m.from} (${m.pageId}): ${m.text}`;
+        ul.appendChild(li);
       });
     }
   </script>
