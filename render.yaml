@@ -1,13 +1,9 @@
 services:
   - type: web
-    name: messenger-automation
+    name: work-flow-messanger
     env: node
-    plan: free
-    buildCommand: "npm install"
-    startCommand: "node server.js"
+    buildCommand: npm install
+    startCommand: node server.cjs
     envVars:
-      - key: FB_APP_ID
-        value: 1256408305896903
-      - key: FB_APP_SECRET
-        value: fc7fbca3fbecd5bc6b06331bc4da17c9
-    autoDeploy: true
+      - key: NODE_VERSION
+        value: 18
