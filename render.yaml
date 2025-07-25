@@ -7,8 +7,6 @@ services:
     plan: free
     envVars:
       - key: APP_ID
-        value: 1256408305896903   # ⬅️ Replace this
+        value: 1256408305896903
       - key: APP_SECRET
-        value: fc7fbca3fbecd5bc6b06331bc4da17c9 # ⬅️ Replace this
-      - key: VERIFY_TOKEN
-        value: hello     # ⬅️ Replace this
+        value: fc7fbca3fbecd5bc6b06331bc4da17c9
