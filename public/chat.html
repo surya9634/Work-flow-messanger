@@ -4,66 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Messenger Chat</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      margin: 0;
-      padding: 0;
-    }
-    .chat-container {
-      max-width: 600px;
-      margin: 2rem auto;
-      padding: 1rem;
-      background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      border-radius: 8px;
-    }
-    .message {
-      display: flex;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-    .message img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-    .message-text {
-      background: #f1f0f0;
-      padding: 0.6rem 1rem;
-      border-radius: 10px;
-    }
-    #messages { max-height: 400px; overflow-y: auto; }
-    #sendForm {
-      display: flex;
-      margin-top: 1rem;
-    }
-    #msgInput {
-      flex: 1;
-      padding: 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    #sendBtn {
-      padding: 0.6rem 1.2rem;
-      margin-left: 0.5rem;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div class="chat-container">
-    <h2>Messenger Chat</h2>
-    <div id="messages"></div>
-
-    <form id="sendForm">
-      <input type="text" id="msgInput" placeholder="Type a message" required />
-      <button type="submit" id="sendBtn">Send</button>
+<body class="bg-gray-100 font-sans">
+  <div class="max-w-3xl mx-auto mt-10 bg-white rounded shadow p-4">
+    <h2 class="text-2xl font-bold mb-4">💬 Messenger Chat</h2>
+    
+    <div id="messages" class="space-y-3 max-h-[400px] overflow-y-auto border p-4 rounded bg-gray-50"></div>
+    
+    <form id="sendForm" class="flex items-center gap-2 mt-4">
+      <input id="msgInput" type="text" placeholder="Type your message..."
+             class="flex-1 p-2 border rounded shadow-sm" required />
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Send
+      </button>
     </form>
   </div>
 
@@ -78,15 +32,17 @@
       messagesDiv.innerHTML = "";
 
       data.messages.forEach(msg => {
-        const div = document.createElement("div");
-        div.className = "message";
-        div.innerHTML = \`
-          <img src="\${msg.pfp}" />
-          <div class="message-text">
-            <strong>\${msg.sender}:</strong> \${msg.text}
+        const msgDiv = document.createElement("div");
+        msgDiv.className = "flex items-start gap-3";
+
+        msgDiv.innerHTML = `
+          <img src="${msg.pfp}" class="w-10 h-10 rounded-full shadow" />
+          <div>
+            <div class="font-semibold">${msg.sender}</div>
+            <div class="bg-gray-200 rounded p-2 mt-1 text-sm">${msg.text}</div>
           </div>
-        \`;
-        messagesDiv.appendChild(div);
+        `;
+        messagesDiv.appendChild(msgDiv);
       });
 
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -95,9 +51,11 @@
     document.getElementById("sendForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = document.getElementById("msgInput").value;
-      const res = await fetch("/api/send", {
+      if (!text.trim()) return;
+
+      await fetch("/api/send", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: convoId, message: text })
       });
 
@@ -106,7 +64,7 @@
     });
 
     loadMessages();
-    setInterval(loadMessages, 5000); // Poll every 5 seconds
+    setInterval(loadMessages, 5000); // real-time polling
   </script>
 </body>
 </html>
