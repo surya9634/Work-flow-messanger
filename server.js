@@ -1,4 +1,4 @@
-// server.cjs (Facebook Messenger Automation - With Sender Info & Message Text Fix)
+// server.cjs (Messenger Realtime Chat UI + API Backend)
 
 const express = require("express");
 const session = require("express-session");
@@ -22,6 +22,8 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
@@ -36,14 +38,10 @@ passport.use(new FacebookStrategy({
   return done(null, profile);
 }));
 
-app.use(express.static(path.join(__dirname, "public")));
-
-// Facebook login
 app.get("/login", passport.authenticate("facebook", {
   scope: ["pages_show_list", "pages_messaging", "pages_manage_metadata", "pages_read_engagement"]
 }));
 
-// Facebook callback
 app.get("/login/callback", passport.authenticate("facebook", { failureRedirect: "/login/fail" }), (req, res) => {
   res.redirect("/dashboard");
 });
@@ -51,7 +49,6 @@ app.get("/login/callback", passport.authenticate("facebook", { failureRedirect: 
 app.get("/dashboard", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
   res.send(`<h1>Hello, ${req.user.displayName}</h1>
-    <p>Access Token: ${req.user.accessToken}</p>
     <a href="/conversations">View Conversations</a> | <a href="/logout">Logout</a>`);
 });
 
@@ -69,59 +66,71 @@ async function getPageAccessToken(userToken) {
 
 app.get("/conversations", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
-
   try {
     const page = await getPageAccessToken(req.user.accessToken);
     if (!page) return res.send("No pages found or permission denied.");
 
     const resp = await fetch(`https://graph.facebook.com/v19.0/${page.id}/conversations?access_token=${page.access_token}`);
     const data = await resp.json();
-
-    if (data.error) {
-      console.error("Facebook API Error:", data.error);
-      return res.send(`Error fetching conversations: ${data.error.message}`);
-    }
+    if (data.error) return res.send(`Error: ${data.error.message}`);
 
     let html = `<h2>Messenger Conversations</h2><ul>`;
     for (let convo of data.data || []) {
-      html += `<li><a href="/messages/${convo.id}">${convo.id}</a></li>`;
+      html += `<li><a href="/chat?id=${convo.id}">${convo.id}</a></li>`;
     }
     html += `</ul><a href="/dashboard">Back to Dashboard</a>`;
     res.send(html);
-
   } catch (err) {
     console.error("Error in /conversations:", err);
     res.status(500).send("Internal server error.");
   }
 });
 
-app.get("/messages/:id", async (req, res) => {
+app.get("/chat", (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
+  res.sendFile(path.join(__dirname, "public", "chat.html"));
+});
 
+app.get("/api/messages", async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
   try {
+    const { id } = req.query;
     const page = await getPageAccessToken(req.user.accessToken);
-    if (!page) return res.send("Page access not found");
-
-    const resp = await fetch(`https://graph.facebook.com/v19.0/${req.params.id}/messages?fields=message,from,created_time&access_token=${page.access_token}`);
+    const resp = await fetch(`https://graph.facebook.com/v19.0/${id}/messages?fields=message,from,created_time&access_token=${page.access_token}`);
     const data = await resp.json();
 
-    if (data.error) {
-      console.error("Facebook API Error:", data.error);
-      return res.send(`Error fetching messages: ${data.error.message}`);
-    }
+    const messages = await Promise.all((data.data || []).map(async msg => {
+      const userResp = await fetch(`https://graph.facebook.com/${msg.from.id}?fields=name,picture&access_token=${page.access_token}`);
+      const userData = await userResp.json();
+      return {
+        sender: userData.name || msg.from.id,
+        text: msg.message || "[No text]",
+        pfp: userData.picture?.data?.url || ""
+      };
+    }));
 
-    let html = `<h2>Messages for Conversation ID: ${req.params.id}</h2><ul>`;
-    for (let msg of data.data || []) {
-      const sender = msg.from?.name || msg.from?.id || "Unknown";
-      const content = msg.message || "[No text]";
-      html += `<li><strong>${sender}:</strong> ${content}</li>`;
-    }
-    html += `</ul><a href="/conversations">Back to Conversations</a>`;
-    res.send(html);
-
+    res.json({ messages });
   } catch (err) {
-    console.error("Server crash on /messages/:id →", err);
-    res.status(500).send("Internal server error. Please try again later.");
+    console.error("Error in /api/messages:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/send", async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const { id, message } = req.body;
+    const page = await getPageAccessToken(req.user.accessToken);
+    const sendRes = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${page.access_token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient: { id: id }, message: { text: message } })
+    });
+    const result = await sendRes.json();
+    res.json(result);
+  } catch (err) {
+    console.error("Error sending message:", err);
+    res.status(500).json({ error: "Failed to send message" });
   }
 });
 
