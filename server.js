@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 10000;
 const FACEBOOK_APP_ID = "1256408305896903";
 const FACEBOOK_APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
 const CALLBACK_URL = "https://work-flow-messanger.onrender.com/login/callback";
-const VERIFY_TOKEN = "workflow_verify_token"; // For webhook
+const VERIFY_TOKEN = "workflow_verify_token"; // Webhook verify token
 
 // ======= Middleware =======
 app.use(express.json());
@@ -31,7 +31,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ======= Passport =======
+// ======= Passport Setup =======
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -45,20 +45,14 @@ passport.use(new FacebookStrategy({
   return done(null, profile);
 }));
 
-// ======= Helper =======
+// ======= Helpers =======
 async function getPageAccessToken(userToken) {
-  try {
-    const resp = await fetch(`https://graph.facebook.com/me/accounts?access_token=${userToken}`);
-    const data = await resp.json();
-    if (data?.data?.length) return data.data[0]; // First page
-    return null;
-  } catch (err) {
-    console.error("Page token error:", err);
-    return null;
-  }
+  const resp = await fetch(`https://graph.facebook.com/me/accounts?access_token=${userToken}`);
+  const data = await resp.json();
+  return data?.data?.[0] || null;
 }
 
-// ======= Auth Routes =======
+// ======= Facebook OAuth Routes =======
 app.get("/login", passport.authenticate("facebook", {
   scope: ["pages_show_list", "pages_messaging", "pages_manage_metadata", "pages_read_engagement"]
 }));
@@ -66,15 +60,25 @@ app.get("/login", passport.authenticate("facebook", {
 app.get("/login/callback", passport.authenticate("facebook", {
   failureRedirect: "/login/fail"
 }), async (req, res) => {
-  const page = await getPageAccessToken(req.user.accessToken);
-  if (page) {
-    // Subscribe page to webhook
-    await fetch(`https://graph.facebook.com/${page.id}/subscribed_apps?access_token=${page.access_token}`, {
-      method: "POST"
-    }).then(r => r.json()).then(d => {
-      console.log("✅ Page subscribed to webhook:", d);
-    });
+  try {
+    const page = await getPageAccessToken(req.user.accessToken);
+    if (page) {
+      // ✅ FIX: Add subscribed_fields
+      const response = await fetch(`https://graph.facebook.com/${page.id}/subscribed_apps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscribed_fields: ["messages", "messaging_postbacks"],
+          access_token: page.access_token
+        })
+      });
+      const data = await response.json();
+      console.log("✅ Page subscribed to webhook:", data);
+    }
+  } catch (err) {
+    console.error("❌ Subscription failed:", err.message);
   }
+
   res.redirect("/dashboard");
 });
 
@@ -190,7 +194,7 @@ app.post("/api/send", async (req, res) => {
   }
 });
 
-// ======= Webhook Routes =======
+// ======= Webhook =======
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -217,9 +221,9 @@ app.post('/webhook', express.json(), async (req, res) => {
           console.log(`📩 Message from ${senderId}: ${message}`);
           io.to(senderId).emit("newMessage", { id: senderId, message });
 
-          // Optional: Auto-reply
-          const pageAccessToken = "YOUR_PAGE_ACCESS_TOKEN"; // Replace this with env var or DB stored token
-          await fetch(`https://graph.facebook.com/me/messages?access_token=${pageAccessToken}`, {
+          // Optional: Auto-reply (can be removed)
+          const page = await getPageAccessToken(process.env.PAGE_USER_ACCESS_TOKEN || req.user?.accessToken);
+          await fetch(`https://graph.facebook.com/me/messages?access_token=${page.access_token}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -237,7 +241,16 @@ app.post('/webhook', express.json(), async (req, res) => {
   }
 });
 
-// ======= Logout and Misc =======
+// ======= Socket.IO Join Rooms =======
+io.on("connection", socket => {
+  console.log("✅ Socket.IO connected");
+  socket.on("join", (id) => {
+    socket.join(id);
+    console.log("🟢 Joined conversation:", id);
+  });
+});
+
+// ======= Misc =======
 app.get("/logout", (req, res, next) => {
   req.logout(err => {
     if (err) return next(err);
@@ -246,9 +259,11 @@ app.get("/logout", (req, res, next) => {
 });
 
 app.get("/login/fail", (req, res) => res.send("Facebook login failed."));
-app.get("/", (req, res) => res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>"));
+app.get("/", (req, res) => {
+  res.send("<h2>Welcome to Messenger Automation</h2><a href='/login'>Login with Facebook</a>");
+});
 
 // ======= Start Server =======
 server.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Server running at http://localhost:${PORT}`);
 });
