@@ -10,9 +10,9 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Replace these with actual values or use process.env
-const FACEBOOK_APP_ID = "YOUR_APP_ID";
-const FACEBOOK_APP_SECRET = "YOUR_APP_SECRET";
-const CALLBACK_URL = "https://messanger-automation.onrender.com/login/callback";
+const FACEBOOK_APP_ID = "1256408305896903";
+const FACEBOOK_APP_SECRET = "fc7fbca3fbecd5bc6b06331bc4da17c9";
+const CALLBACK_URL = "https://work-flow-messanger.onrender.com//login/callback";
 
 // Session setup
 app.use(session({
