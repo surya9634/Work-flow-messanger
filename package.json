@@ -1,7 +1,6 @@
 {
   "name": "messenger-automation",
   "version": "1.0.0",
-  "description": "Messenger automation SaaS using Facebook Login",
   "main": "server.cjs",
   "type": "commonjs",
   "scripts": {
@@ -12,16 +11,6 @@
     "express-session": "^1.17.3",
     "passport": "^0.6.0",
     "passport-facebook": "^3.0.0",
-    "node-fetch": "^2.6.7",
-    "cookie-parser": "^1.4.6",
-    "body-parser": "^1.20.2",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": [],
-  "author": "Suraj Sharma",
-  "license": "ISC"
+    "node-fetch": "^2.6.7"
+  }
 }
