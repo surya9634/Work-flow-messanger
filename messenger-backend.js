@@ -1,80 +1,71 @@
-// server.js
+const express = require("express");
+const bodyParser = require("body-parser");
+const axios = require("axios");
+const path = require("path");
 
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
-
-dotenv.config();
 const app = express();
-app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-// Setup __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const VERIFY_TOKEN = "your_verify_token"; // Set same as in FB Developer Console
+const PAGE_ACCESS_TOKEN = "your_page_access_token"; // Get from FB Page
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, "../public")));
+let messageHistory = [];
 
-// Serve index.html on root GET
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-const APP_ID = process.env.APP_ID;
-const APP_SECRET = process.env.APP_SECRET;
-const REDIRECT_URI = "https://work-flow-messanger.onrender.com/auth/callback";
-
-// Facebook Login Route
-app.get("/auth/login", (req, res) => {
-  const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${APP_ID}&redirect_uri=${encodeURIComponent(
-    REDIRECT_URI
-  )}&scope=pages_messaging,pages_manage_metadata,pages_read_engagement,pages_show_list`;
-
-  res.redirect(authUrl);
-});
-
-// Facebook OAuth Callback
-app.get("/auth/callback", async (req, res) => {
-  const { code } = req.query;
-  if (!code) return res.status(400).send("Missing code");
-
-  try {
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v18.0/oauth/access_token?client_id=${APP_ID}&redirect_uri=${encodeURIComponent(
-        REDIRECT_URI
-      )}&client_secret=${APP_SECRET}&code=${code}`
-    );
-    const tokenData = await tokenRes.json();
-    if (tokenData.error) return res.status(500).json(tokenData.error);
-
-    const userAccessToken = tokenData.access_token;
-
-    // Get pages
-    const pagesRes = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`
-    );
-    const pagesData = await pagesRes.json();
-    if (pagesData.error) return res.status(500).json(pagesData.error);
-
-    // Format results
-    const pagesHTML = pagesData.data
-      .map(
-        (p) =>
-          `<li><b>${p.name}</b> — Page ID: ${p.id}<br>Access Token: <code>${p.access_token}</code></li>`
-      )
-      .join("");
-
-    res.send(`<h2>✅ Login Successful!</h2><ul>${pagesHTML}</ul>`);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("OAuth Error");
+// Webhook verification
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("✅ Webhook verified");
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
   }
 });
 
-const PORT = process.env.PORT || 3000;
+// Webhook to receive messages
+app.post("/webhook", async (req, res) => {
+  const body = req.body;
+
+  if (body.object === "page") {
+    for (const entry of body.entry) {
+      const event = entry.messaging[0];
+      const senderId = event.sender.id;
+
+      if (event.message && event.message.text) {
+        const userMsg = event.message.text;
+        messageHistory.push({ from: senderId, text: userMsg });
+
+        // Auto-reply (optional)
+        await axios.post(
+          `https://graph.facebook.com/v19.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`,
+          {
+            recipient: { id: senderId },
+            message: { text: `Echo: ${userMsg}` }
+          }
+        );
+
+        messageHistory.push({ from: "page", text: `Echo: ${userMsg}` });
+      }
+    }
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+// Return chat history
+app.get("/history", (req, res) => {
+  res.json(messageHistory);
+});
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server is live at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
